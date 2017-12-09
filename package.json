@@ -1,0 +1,24 @@
+{
+  "name": "react-continuum",
+  "version": "0.0.1",
+  "description": "A neat timeline component for react",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "babel-node tests/main.js",
+    "build": "tsc --outDir lib --declarationDir lib",
+    "watch": "tsc -w --outDir lib --declarationDir lib"
+  },
+  "author": "Brandon Garling",
+  "license": "ISC",
+  "repository": "https://github.com/bjg96/react-continuum",
+  "devDependencies": {
+    "@types/lodash": "^4.14.88",
+    "@types/react": "^16.0.28",
+    "babel-preset-react": "^6.24.1",
+    "typescript": "^2.6.2"
+  },
+  "dependencies": {
+    "lodash": "^4.17.4",
+    "react": "^16.2.0"
+  }
+}
