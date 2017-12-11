@@ -24,6 +24,7 @@ export interface ITimelineProps {
 export interface ITimelineState {
 	viewStart: MomentType;
 	viewEnd: MomentType;
+	viewHeightOffset: number;
 	workingData: ExtendedTimelineData[];
 	numGuideLines: number;
 	isDragging: boolean;
@@ -31,20 +32,29 @@ export interface ITimelineState {
 
 export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 	private containerRef: HTMLElement | null = null;
-	// private startDragX: number = 0;
-	// private startDragY: number = 0;
-	// private startDragMoment: MomentType | null = null;
+	private startDragX: number = 0;
+	private startDragY: number = 0;
+	private startDragHeightOffset: number = 0;
+	private startDragMoment: MomentType | null = null;
+	private endDragMoment: MomentType | null = null;
 
 	componentWillMount() {
 		this.setState({
 			viewStart: Moment().subtract(4, "days"),
 			viewEnd: Moment().add(4, "days"),
 			numGuideLines: 10,
+			viewHeightOffset: 0,
 		});
 
 		this.processProps(this.props);
 		// Add listener for middle mouse
-		// document.addEventListener('mouseup', this.handleOutsideMouseUp, false);		
+		document.addEventListener('mouseup', this.onEndDrag, false);	
+		document.addEventListener('mousemove', this.onMouseMove, false);	
+	}
+
+	componentWillUnmount() {
+		document.removeEventListener('mouseup', this.onEndDrag, false);
+		document.removeEventListener('mousemove', this.onMouseMove, false);	
 	}
 
 	componentWillReceiveProps(nextProps: ITimelineProps) {
@@ -78,45 +88,58 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		}
 	}
 
-	/*
-
-	componentWillUnmount() {
-		document.addEventListener('click', this.handleOutsideMouseUp, false);		
-	}*/
-
-	/*
-	handleOutsideMouseUp = (e: any) => {
-		// ignore clicks on the component itself
-		if (!this.containerRef || this.containerRef.contains(e.target)) {
+	onEndDrag = (e: any) => {
+		if (e.button !== 1) {
 			return;
 		}
 
-		this.setState({
-			isDragging: false,
-		});
+		if (this.state.isDragging) {
+			this.setState({
+				isDragging: false,
+			});	
+		}
 	};
 
-	handleMouseMove = (e: any) => {
-		if (this.state.isDragging) {
+	onMouseMove = (e: any) => {
+		if (this.state.isDragging && this.startDragMoment && this.endDragMoment && this.containerRef) {
 			let { viewStart, viewEnd } = this.state;
+			let containerSize = this.containerRef.getBoundingClientRect();
+
+			let viewSeconds = viewEnd.diff(viewStart, 'seconds');
 			
-			viewStart.add(e.clientX)
+			let rawDeltaX = this.startDragX - e.clientX;
+			let deltaXPercent = rawDeltaX/containerSize.width;
+
+			let newViewStart = Moment(this.startDragMoment).add(deltaXPercent * viewSeconds, 'seconds');
+			let newViewEnd = Moment(this.endDragMoment).add(deltaXPercent * viewSeconds, 'seconds');
+
+			let rawDeltaY = this.startDragY - e.clientY;
+
+			let newViewHeightOffset = Math.max(this.startDragHeightOffset - rawDeltaY, 0);
 			
 			this.setState({
-				
+				viewStart: newViewStart,
+				viewEnd: newViewEnd,
+				viewHeightOffset: newViewHeightOffset,
 			});
 		}
 	};
 
 	onStartDrag = (e: any) => {
+		if (e.button !== 1) {
+			return;
+		}
+
 		this.setState({
 			isDragging: true,
 		});
 
-		this.startDragMoment = this.
+		this.startDragMoment = Moment(this.state.viewStart);
+		this.endDragMoment = Moment(this.state.viewEnd);
+		this.startDragHeightOffset = this.state.viewHeightOffset;
 		this.startDragX = e.clientX;
 		this.startDragY = e.clientY;
-	};*/
+	};
 
 	processData(data: TimelineData[]) {
 		let newWorkingData: ExtendedTimelineData[] = [];
@@ -175,13 +198,8 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 	};
 
 	renderDatum(datum: ExtendedTimelineData) {
-		if (!this.containerRef) {
-			console.warn("Attempted to render dataum with containerRef not captured");
-			// return null;
-		}
-
 		let { height } = this.props;
-		let { viewStart, viewEnd } = this.state;
+		let { viewStart, viewEnd, viewHeightOffset } = this.state;
 
 		// TODO: Move this out at some point, optimize
 		// Don't render this datum if it's out of view
@@ -195,15 +213,15 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		let endPercent = Math.min(Math.max(viewEnd.diff(datum.end, "seconds"), 0) / maxSeconds, 1) * 100;
 
 		if (startPercent === 0)
-			startPercent = -10;
+			startPercent = -1;
 
 		if (endPercent === 0)
-			endPercent = -10;
+			endPercent = -1;
 
 		let style: CSSProperties = {
 			position: "absolute",
 			backgroundColor: "rgba(0, 128, 128, 0.2)",
-			top: `${height - 40 - 30 * (datum.order + 1)}px`,
+			top: `${height - 40 - 30 * (datum.order + 1) + viewHeightOffset}px`,
 			height: "20px",
 			left: `${startPercent}%`,
 			right: `${endPercent}%`,
@@ -267,6 +285,25 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 					)
 				}
 			</div>
+		);
+	}
+
+	renderBaseline() {
+		let { height } = this.props;
+		let { viewHeightOffset } = this.state;
+
+		let style: CSSProperties = {
+			position: "absolute",
+			top: `${height - 40 + viewHeightOffset}px`,
+			height: "0px",
+			width: "100%",
+			overflow: "hidden",
+			whiteSpace: "nowrap",
+			borderTop: "1px solid rgba(0, 0, 0, 0.25)",
+		}
+
+		return (
+			<div style={style} />
 		);
 	}
 
@@ -346,11 +383,12 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		let datums = workingData.map(datum => this.renderDatum(datum));
 		
 		return (
-			<div ref={el => this.containerRef = el} style={style} onWheel = {this.onZoom}>
+			<div ref={el => this.containerRef = el} style={style} onWheel={this.onZoom} onMouseDown={this.onStartDrag}>
 				{datums}
 				{this.renderNowLine()}
 				{this.renderGuideLines()}
 				{this.renderScale()}
+				{this.renderBaseline()}
 				<div>{`${this.renderDateFormatted(viewStart, "hours")} - ${this.renderDateFormatted(viewEnd, "hours")}`}</div>
 			</div>
 		);
