@@ -18,19 +18,19 @@ class App extends PureComponent<{}, IAppState> {
     componentWillMount() {
         let data: TimelineData[] = [
             {
-               start: Moment().subtract(2, "days"),
+               start: Moment().subtract(2, 'days'),
                end: Moment(),
-               label: "Task 1",
+               label: 'Task 1',
             },
             {
-                start: Moment().subtract(1, "days"),
-                end: Moment().add(1, "days"),
-                label: "Task 2",
+                start: Moment().subtract(1, 'days'),
+                end: Moment().add(1, 'days'),
+                label: 'Task 2',
              },
              {
                 start: Moment(),
-                end: Moment().add(2, "days"),
-                label: "Task 3",
+                end: Moment().add(2, 'days'),
+                label: 'Task 3',
              },
          ];
 
@@ -44,8 +44,8 @@ class App extends PureComponent<{}, IAppState> {
     onAddData = () => {
         let newData = _.clone(this.state.data);
 
-        let start = Moment().subtract(Math.random() * 5 * 24, "hours").add(Math.random() * 5 * 24, "hours");
-        let end = Moment(start).add(Math.random() * 4 * 24, "hours");
+        let start = Moment().subtract(Math.random() * 5 * 24, 'hours').add(Math.random() * 5 * 24, 'hours');
+        let end = Moment(start).add(Math.random() * 4 * 24, 'hours');
 
         newData.push(
             {
