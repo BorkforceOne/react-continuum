@@ -1,1 +1,1 @@
-export { Timeline } from './continuum';
+export { Timeline, TimelineData } from './continuum';

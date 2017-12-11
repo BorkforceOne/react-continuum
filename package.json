@@ -1,8 +1,9 @@
 {
   "name": "react-continuum",
-  "version": "0.0.1",
+  "version": "0.0.6",
   "description": "A neat timeline component for react",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "test": "babel-node tests/main.js",
     "build": "tsc --outDir lib --declarationDir lib",

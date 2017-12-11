@@ -17,6 +17,8 @@ export interface ExtendedTimelineData extends TimelineData {
 export interface ITimelineProps {
 	data: TimelineData[];
 	height: number;
+	viewStart: string | MomentType;
+	viewEnd: string | MomentType;
 }
 
 export interface ITimelineState {
@@ -40,22 +42,49 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			numGuideLines: 10,
 		});
 
-		this.processData(this.props.data);
-
+		this.processProps(this.props);
 		// Add listener for middle mouse
 		// document.addEventListener('mouseup', this.handleOutsideMouseUp, false);		
 	}
+
+	componentWillReceiveProps(nextProps: ITimelineProps) {
+		this.processProps(nextProps, this.props);
+	}
+
+	processProps(nextProps: ITimelineProps, lastProps?: ITimelineProps) {
+		if (lastProps) {
+			// Process new data
+			if (nextProps.data !== lastProps.data)
+				this.processData(nextProps.data);
+
+			// Capture new view settings
+			if (nextProps.viewEnd !== lastProps.viewEnd || 
+				nextProps.viewStart !== lastProps.viewStart) {
+				this.setState({
+					viewStart: Moment(nextProps.viewStart),
+					viewEnd: Moment(nextProps.viewEnd),
+				});
+			}		
+		}
+		else {
+			// Process data
+			this.processData(nextProps.data);
+
+			// Process view settings
+			this.setState({
+				viewStart: Moment(nextProps.viewStart),
+				viewEnd: Moment(nextProps.viewEnd),
+			});
+		}
+	}
+
 	/*
 
 	componentWillUnmount() {
 		document.addEventListener('click', this.handleOutsideMouseUp, false);		
 	}*/
 
-	componentWillReceiveProps(nextProps: ITimelineProps) {
-		if (nextProps.data !== this.props.data)
-			this.processData(nextProps.data);
-	}
-/*
+	/*
 	handleOutsideMouseUp = (e: any) => {
 		// ignore clicks on the component itself
 		if (!this.containerRef || this.containerRef.contains(e.target)) {
@@ -183,6 +212,7 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			textOverflow: "ellipsis",
 			borderStyle: "solid",
 			borderColor: "black",
+			textAlign: "center",
 		}
 
 		let key = `${datum.start.toISOString()}-${datum.end.toISOString()}-${datum.label}`;
@@ -204,7 +234,7 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			return date.format("MM-DD-YYYY");
 		}
 		else {
-			return date.format("MM-DD-YYYY, h:mm:ss a");
+			return date.format("MM-DD-YYYY, h:mm a");
 		}
 	}
 
@@ -280,13 +310,22 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			width: `${(1/numGuideLines) * 100}%`,
 			right: "0px",
 			height: "0px",
-			borderTop: "1px dotted green",
+			borderTop: "1px solid green",
 			textAlign: "center",
 		};
 
+		let useDays = false;
+		let hours = Math.round(seconds/360)/10;
+		let days = Math.round(hours/2.4)/10;
+
+		if (hours > 23.9)
+			useDays = true;
+
 		return (
 			<div style={style}>
-				{Math.round(seconds/360)/10} hours
+				{
+					useDays ? `${days} days` : `${hours} hours`
+				}
 			</div>
 		)
 	}

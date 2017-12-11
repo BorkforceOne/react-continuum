@@ -64,13 +64,15 @@ class App extends PureComponent<{}, IAppState> {
 
     render() {
         let { data } = this.state;
+        let viewStart = Moment().subtract(4, 'days');
+        let viewEnd = Moment().add(4, 'days');
         return (
             <div>
                 <button onClick={this.onAddData}>Add</button>
                 <button onClick={this.onForceRerender}>Rerender</button>
                 <h1>Timeline</h1>
                 <p>This is my awesome timeline</p>
-                <Timeline height={600} data={data}/>
+                <Timeline height={600} data={data} viewStart={viewStart} viewEnd={viewEnd}/>
             </div>
         );
     }

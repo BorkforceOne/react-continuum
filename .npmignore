@@ -2,6 +2,7 @@
 src/
 tests/
 examples/
+tsconfig.json
 
 # Logs
 logs
