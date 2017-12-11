@@ -1,6 +1,6 @@
 {
   "name": "react-continuum",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A neat timeline component for react",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
