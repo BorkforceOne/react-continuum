@@ -8,9 +8,11 @@ import * as _ from 'lodash';
 
 interface IAppState {
     data: TimelineData[],
+    viewStart: Moment.Moment;
+    viewEnd: Moment.Moment;
 }
 
-let myInt = 0;
+let myInt = 4;
 
 class App extends PureComponent<{}, IAppState> {
     componentWillMount() {
@@ -18,22 +20,24 @@ class App extends PureComponent<{}, IAppState> {
             {
                start: Moment().subtract(2, "days"),
                end: Moment(),
-               label: "I0",
+               label: "Task 1",
             },
             {
                 start: Moment().subtract(1, "days"),
                 end: Moment().add(1, "days"),
-                label: "I1",
+                label: "Task 2",
              },
              {
                 start: Moment(),
                 end: Moment().add(2, "days"),
-                label: "I2",
+                label: "Task 3",
              },
          ];
 
         this.setState({
             data,
+            viewStart: Moment().subtract(4, 'days'),
+            viewEnd: Moment().add(4, 'days'),
         });
     }
 
@@ -47,7 +51,7 @@ class App extends PureComponent<{}, IAppState> {
             {
                 start: start,
                 end: end,
-                label: `Test ${myInt ++}`,
+                label: `Task ${myInt ++}`,
             },
         );
 
@@ -63,15 +67,14 @@ class App extends PureComponent<{}, IAppState> {
     };
 
     render() {
-        let { data } = this.state;
-        let viewStart = Moment().subtract(4, 'days');
-        let viewEnd = Moment().add(4, 'days');
+        let { data, viewStart, viewEnd } = this.state;
         return (
             <div>
+                <h1>Timeline Component</h1>
+                <p>Below is an example of the Timeline component</p>
                 <button onClick={this.onAddData}>Add</button>
-                <button onClick={this.onForceRerender}>Rerender</button>
-                <h1>Timeline</h1>
-                <p>This is my awesome timeline</p>
+                <button onClick={this.onForceRerender}>Force Rerender</button>
+                <hr/>
                 <Timeline height={600} data={data} viewStart={viewStart} viewEnd={viewEnd}/>
             </div>
         );
