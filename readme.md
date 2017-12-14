@@ -2,12 +2,14 @@
 A React component to help with displaying overlaying events and tasks.
 
 ## Timeline Props
-| Prop      | Type                   | Description
-| --------- | ---------------------- | -----------
-| data      | `TimelineData[]`       | The data to display in the timeline
-| height    | `Number`               | The height of the timeline in pixels
-| viewStart | `Moment or DateTimeString`| The initial view start
-| viewEnd   | `Moment or DateTimeString`| The initial view end
+| Prop      | Type                   | Description                           | Default
+| --------- | ---------------------- | ------------------------------------- | --------
+| data      | `TimelineData[]`       | The data to display in the timeline   | Required
+| height    | `Number`               | The height of the timeline in pixels  | Required
+| viewStart | `Moment or DateTimeString`| The initial view start             | Required
+| viewEnd   | `Moment or DateTimeString`| The initial view end               | Required
+| targetDivisions   | `Number`| The number of divisions when rendering guidelines | 10
+| renderDatum   | `(datum: ExtendedTimelineData) => ReactNode`| Render function to use instead of the built in render, this will override all base styles other than positioning of the element | None
 
 ## TimelineData
 | Key       | ValueType | Description                  
