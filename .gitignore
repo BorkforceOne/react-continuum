@@ -1,6 +1,9 @@
 # Output libs
 lib/
 
+# Example output
+dist/
+
 # Logs
 logs
 *.log

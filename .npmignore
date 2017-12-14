@@ -3,6 +3,7 @@ src/
 tests/
 examples/
 images/
+docs/
 tsconfig.json
 
 # Logs
