@@ -1,6 +1,7 @@
 import * as React from 'react';
-import { PureComponent, CSSProperties } from 'react';
+import { PureComponent, CSSProperties, ReactNode } from 'react';
 import * as Moment from 'moment';
+import { calculateInterval } from './utils';
 
 export type MomentType = Moment.Moment;
 
@@ -8,6 +9,7 @@ export interface TimelineData {
 	start: MomentType;
 	end: MomentType;
 	label: string;
+	id?: string | number;
 }
 
 export interface ExtendedTimelineData extends TimelineData {
@@ -19,21 +21,37 @@ export interface ITimelineProps {
 	height: number;
 	viewStart: string | MomentType;
 	viewEnd: string | MomentType;
+	targetDivisions?: number;
+	renderDatum?: (datum: ExtendedTimelineData) => ReactNode;
 }
 
 export interface ITimelineState {
 	viewStart: MomentType;
 	viewEnd: MomentType;
-	viewStartLastZoom: MomentType;
 	viewHeightOffset: number;
 	workingData: ExtendedTimelineData[];
-	numGuideLines: number;
 	isDragging: boolean;
 }
 
 const DragMouseButton = 0;
 
+const DefaultDatumStyle: CSSProperties = {
+	backgroundColor: '#007bff',
+	color: '#ffffff',
+	border: '2px solid white',
+	borderRadius: '5px',
+	fontWeight: 'bold',
+	whiteSpace: 'nowrap',
+	textOverflow: 'ellipsis',
+	textAlign: 'center',
+	height: '20px',	
+};
+
 export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
+	public static defaultProps: Partial<ITimelineProps> = {
+		targetDivisions: 10,
+	};
+
 	private containerRef: HTMLElement | null = null;
 	private startDragX: number = 0;
 	private startDragY: number = 0;
@@ -43,7 +61,6 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 
 	componentWillMount() {
 		this.setState({
-			numGuideLines: 10,
 			viewHeightOffset: 0,
 		});
 
@@ -75,7 +92,6 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 				!Moment(nextProps.viewStart).isSame(Moment(lastProps.viewStart))) {
 				this.setState({
 					viewStart: Moment(nextProps.viewStart),
-					viewStartLastZoom: Moment(nextProps.viewStart),
 					viewEnd: Moment(nextProps.viewEnd),
 				});
 			}		
@@ -87,7 +103,6 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			// Process view settings
 			this.setState({
 				viewStart: Moment(nextProps.viewStart),
-				viewStartLastZoom: Moment(nextProps.viewStart),
 				viewEnd: Moment(nextProps.viewEnd),
 			});
 		}
@@ -106,6 +121,7 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		// Sort the data by start date
 		newWorkingData.sort((a, b) => a.start.diff(b.start, 'seconds'));
 
+		// Figure out ordering
 		for (let i = 0; i < newWorkingData.length; i ++) {
 			let a = newWorkingData[i];
 			let collisions: ExtendedTimelineData[] = [];
@@ -115,7 +131,7 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 				if (a === b)
 					continue;
 
-				if ((a.start.isBefore(b.end) && a.start.isAfter(b.start)))
+				if ((a.start.isSameOrBefore(b.end) && a.start.isSameOrAfter(b.start)))
 					collisions.push(b)
 			}
 			
@@ -127,9 +143,6 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			a.order = order;
 		}
 		
-		// Figure out ordering
-		newWorkingData
-
 		this.setState({
 			workingData: newWorkingData,
 		});
@@ -197,6 +210,9 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 	onZoom = (e: any) => {
 		let { viewStart, viewEnd } = this.state;
 
+		e.stopPropagation();
+		e.preventDefault();
+
 		let deltaSeconds = (viewStart.diff(viewEnd, 'seconds')) * e.deltaY;
 
 		viewStart = Moment(viewStart).add(deltaSeconds/2);
@@ -205,12 +221,11 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		this.setState({
 			viewStart,
 			viewEnd,
-			viewStartLastZoom: Moment(viewStart),
 		});
 	};
 
 	renderDatum(datum: ExtendedTimelineData) {
-		let { height } = this.props;
+		let { height, renderDatum } = this.props;
 		let { viewStart, viewEnd, viewHeightOffset } = this.state;
 
 		// TODO: Move this out at some point, optimize
@@ -232,25 +247,22 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 
 		let style: CSSProperties = {
 			position: 'absolute',
-			backgroundColor: 'rgba(0, 128, 128, 0.2)',
 			top: `${height - 40 - 30 * (datum.order + 1) + viewHeightOffset}px`,
-			height: '20px',
 			left: `${startPercent}%`,
 			right: `${endPercent}%`,
 			overflow: 'hidden',
-			whiteSpace: 'nowrap',
-			textOverflow: 'ellipsis',
-			border: '2px solid black',
-			textAlign: 'center',
 		}
 
 		let key = `${datum.start.toISOString()}-${datum.end.toISOString()}-${datum.label}`;
 
-		let title = `${this.renderDateFormatted(datum.start)} - ${this.renderDateFormatted(datum.end)} - ${datum.label}`
+		let extendedStyle = renderDatum ? {} : DefaultDatumStyle;
 
 		return (
-			<div style={style} key={key} title={title}>
-				{datum.label}
+			<div 
+				key={key}
+				style={{...extendedStyle, ...style}}
+			>
+				{renderDatum ? renderDatum(datum) : datum.label}
 			</div>
 		)
 	}
@@ -267,7 +279,7 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		}
 	}
 
-	renderLine(percent: number, color: string, key: string, text?: string, textOrder?: number) {
+	renderLine(percent: number, percentEnd: number, color: string, key: string, text?: string, textOrder?: number) {
 		let { height } = this.props;
 		if (!textOrder)
 			textOrder = 0;
@@ -277,9 +289,11 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			top: '0px',
 			height: `${height}px`,
 			left: `${percent * 100}%`,
-			right: `${100 - percent * 100}%`,
+			right: `${100 - percentEnd * 100}%`,
 			whiteSpace: 'nowrap',
-			borderLeft: `1px dotted ${color}`
+			borderLeft: `1px dashed ${color}`,
+			overflow: 'hidden',
+			textOverflow: 'ellipsis',
 		}
 
 		let textStyle: CSSProperties = {
@@ -301,35 +315,22 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		);
 	}
 
-	renderBaseline() {
-		let { height } = this.props;
-		let { viewHeightOffset } = this.state;
-
-		let style: CSSProperties = {
-			position: 'absolute',
-			top: `${height - 40 + viewHeightOffset}px`,
-			height: '0px',
-			width: '100%',
-			overflow: 'hidden',
-			whiteSpace: 'nowrap',
-			borderTop: '1px solid rgba(0, 0, 0, 0.25)',
-		}
-
-		return (
-			<div style={style} />
-		);
-	}
-
 	renderGuideLines() {
-		let { viewEnd, viewStart, viewStartLastZoom, numGuideLines } = this.state;
+		let { targetDivisions } = this.props;
+		let { viewEnd, viewStart } = this.state;
 
-		let viewOffset = Moment(viewStartLastZoom).diff(viewStart, 'seconds');
-		let interval = viewEnd.diff(viewStart, 'seconds') / numGuideLines;
-		let percentOffset = viewOffset % interval/interval;
-		let current = Moment(viewStart).add(viewOffset % interval, 'seconds');
+		let viewStartUnix = viewStart.unix() + Moment().utcOffset() * 60;
+		let viewTotalSeconds = viewEnd.diff(viewStart, 'seconds');
+		let interval = calculateInterval(viewTotalSeconds, targetDivisions as number);
+		let intervalPercent = interval/viewTotalSeconds;
+		let actualGuideLines = Math.floor(viewTotalSeconds / interval);
+
+		let offset = viewStartUnix % interval;
+		let current = Moment(viewStart).subtract(offset, 'seconds');
 		
-		let lines = [];
+		let elements = [];
 		
+		// Render the bottom container element
 		let guideContainerStyle: CSSProperties = {
 			position: 'absolute',
 			bottom: '0px',
@@ -338,76 +339,68 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 			overflow: 'hidden',
 			whiteSpace: 'nowrap',
 			backgroundColor: 'white',
-			borderTop: '2px solid black'
+			borderTop: '2px solid #c6c8ca'
 		};
 
-		lines.push(
+		elements.push(
 			<div style={guideContainerStyle} key='guide-container'/>
 		);
 
-		for (let i = -1; i < numGuideLines + 1; i ++) {
-			let text = this.renderDateFormatted(current);
+		// Render reach guideline
+		for (let i = -1; i < actualGuideLines + 1; i ++) {
+			let text = this.renderDateFormatted(current, 'hours');
 
-			current.add(interval, 'seconds');
+			let percent = 1 - viewEnd.diff(current, 'seconds') / viewTotalSeconds;
 			
-			lines.push(
-				this.renderLine((i/numGuideLines) + percentOffset * (1/numGuideLines), 'rgba(0, 0, 0, 0.25)', `guideline-${i}`, text)
+			elements.push(
+				this.renderLine(percent, percent + intervalPercent, '#c6c8ca', `guideline-${i}`, text)
 			);
+
+			current.add(interval, 'seconds');			
 		}
 
+		// Render the now line if it's currently in view
 		let now = Moment();
 		if (now.isBetween(viewStart, viewEnd)) {
-			let maxSeconds = viewEnd.diff(viewStart, 'seconds');
 			let nowOffset = now.diff(viewStart, 'seconds');
-			let nowPercentOffset = nowOffset/maxSeconds;
-			lines.push(
-				this.renderLine(nowPercentOffset, 'red', 'now', 'Now', 1)
+			let nowPercentOffset = nowOffset/viewTotalSeconds;
+			elements.push(
+				this.renderLine(nowPercentOffset, nowPercentOffset + intervalPercent, 'red', 'now', 'Now', 1)
 			);
 		}
-
-		return lines;
-	}
-
-	renderScale() {
-		let { viewEnd, viewStart, numGuideLines } = this.state;
-
-		let seconds = (viewEnd.diff(viewStart, 'seconds')) / numGuideLines;
 		
-		let style: CSSProperties = {
+		// Render the current scale
+		let scaleStyle: CSSProperties = {
 			position: 'absolute',
 			top: '10px',
-			width: `${(1/numGuideLines) * 100}%`,
+			width: `${(interval / viewTotalSeconds) * 100}%`,
 			right: '0px',
 			height: '0px',
 			borderTop: '1px solid green',
 			textAlign: 'center',
 		};
 
-		let useDays = false;
-		let hours = Math.round(seconds/360)/10;
-		let days = Math.round(hours/2.4)/10;
-
-		if (hours > 23.9)
-			useDays = true;
-
-		return (
-			<div style={style}>
+		// TODO: Potentially don't use Moment's humanize function as it will take 23 hours and render it as 'a day'?
+		elements.push(
+			<div style={scaleStyle} key='guide-scale'>
 				{
-					useDays ? `${days} days` : `${hours} hours`
+					Moment.duration(interval, 'seconds').humanize()
 				}
 			</div>
-		)
+		);
+
+		return elements;
 	}
 
 	render() {
 		let { height } = this.props;
 		let { workingData, viewEnd, viewStart } = this.state;
 
-		let style: CSSProperties = {
+		let containerStyle: CSSProperties = {
 			width: '100%',
 			height: height,
 			position: 'relative',
-			border: '2px solid black',
+			border: '2px solid #c6c8ca',
 			overflow: 'hidden',
 			cursor: 'pointer',
 		};
@@ -415,10 +408,9 @@ export class Timeline extends PureComponent<ITimelineProps, ITimelineState> {
 		let datums = workingData.map(datum => this.renderDatum(datum));
 		
 		return (
-			<div ref={el => this.containerRef = el} style={style} onWheel={this.onZoom} onMouseDown={this.onStartDrag}>
-				{datums}
+			<div ref={el => this.containerRef = el} style={containerStyle} onWheel={this.onZoom} onMouseDown={this.onStartDrag}>
 				{this.renderGuideLines()}
-				{this.renderScale()}
+				{datums}
 				<div>{`${this.renderDateFormatted(viewStart, 'hours')} - ${this.renderDateFormatted(viewEnd, 'hours')}`}</div>
 			</div>
 		);
